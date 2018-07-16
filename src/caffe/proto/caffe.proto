@@ -386,7 +386,7 @@ message LayerParameter {
   optional LogParameter log_param = 134;
   optional LRNParameter lrn_param = 118;
   optional LiftedStructSimilaritySoftmaxLossParameter lifted_struct_sim_softmax_loss_param = 202;
-  optional LiftedRgbdLossParameter lifted_rgbd_loss_param = 204;
+  optional CorrelativeLossParameter correlative_loss_param = 204;
   optional MatReadParameter mat_read_param = 151;
   optional MultiStageMeanfieldParameter multi_stage_meanfield_param = 152;
   optional MultinomialLogisticParameter multinomial_logistic_param = 171;
