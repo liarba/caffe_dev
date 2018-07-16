@@ -977,7 +977,7 @@ message LiftedStructSimilaritySoftmaxLossParameter {
   optional float margin = 1 [default = 1.0];
   optional int32 dim= 2 [default = 19];
 }
-message LiftedRgbdLossParameter {
+message CorrelativeLossParameter {
   optional float margin = 1 [default = 1.0];
   optional int32 dim = 2 [default = 19];
 }
