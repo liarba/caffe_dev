@@ -306,7 +306,7 @@ message ParamSpec {
 // NOTE
 // Update the next available ID when you add a new LayerParameter field.
 //
-// LayerParameter next available layer-specific ID: 152 (last added: mat_read_param)
+// LayerParameter next available layer-specific ID: 154 (last added: CROP)
 message LayerParameter {
   optional string name = 1; // the layer name
   optional string type = 2; // the layer type
@@ -356,12 +356,16 @@ message LayerParameter {
   optional AccuracyParameter accuracy_param = 102;
   optional AdaptiveBiasChannelParameter adaptive_bias_channel_param = 148;
   optional ArgMaxParameter argmax_param = 103;
+  optional AttentionCropParameter attention_crop_param = 205;
   optional BatchNormParameter batch_norm_param = 139;
   optional BiasParameter bias_param = 141;
   optional BiasChannelParameter bias_channel_param = 149;
   optional ConcatParameter concat_param = 104;
   optional ContrastiveLossParameter contrastive_loss_param = 105;
   optional ConvolutionParameter convolution_param = 106;
+  optional CompactBilinearParameter compact_bilinear_param=159;
+  optional CropParameter crop_param = 153;
+  optional CosineParameter cosine_param = 199;
   optional DataParameter data_param = 107;
   optional DenseCRFParameter dense_crf_param = 146;
   optional DomainTransformParameter domain_transform_param = 147;
@@ -381,10 +385,16 @@ message LayerParameter {
   optional InterpParameter interp_param = 143;
   optional LogParameter log_param = 134;
   optional LRNParameter lrn_param = 118;
+  optional LiftedStructSimilaritySoftmaxLossParameter lifted_struct_sim_softmax_loss_param = 202;
+  optional LiftedRgbdLossParameter lifted_rgbd_loss_param = 204;
   optional MatReadParameter mat_read_param = 151;
+  optional MultiStageMeanfieldParameter multi_stage_meanfield_param = 152;
+  optional MultinomialLogisticParameter multinomial_logistic_param = 171;
   optional MatWriteParameter mat_write_param = 145;
   optional MemoryDataParameter memory_data_param = 119;
   optional MVNParameter mvn_param = 120;
+  optional NormalizeParameter norm_param = 164;
+  optional NormFParameter normf_param = 188;
   optional PoolingParameter pooling_param = 121;
   optional PowerParameter power_param = 122;
   optional PReLUParameter prelu_param = 131;
@@ -392,17 +402,53 @@ message LayerParameter {
   optional ReductionParameter reduction_param = 136;
   optional ReLUParameter relu_param = 123;
   optional ReshapeParameter reshape_param = 133;
+  optional RgbdTripletLossParameter rgbd_triplet_loss_param = 203;
   optional ScaleParameter scale_param = 142;
   optional SegAccuracyParameter seg_accuracy_param = 144;
   optional SigmoidParameter sigmoid_param = 124;
   optional SoftmaxParameter softmax_param = 125;
   optional SPPParameter spp_param = 132;
   optional SliceParameter slice_param = 126;
+  optional TripletLossParameter triplet_loss_param = 200;
+  optional OffTripletLossParameter off_triplet_loss_param = 201;
   optional TanHParameter tanh_param = 127;
   optional ThresholdParameter threshold_param = 128;
   optional TileParameter tile_param = 138;
   optional UniqueLabelParameter unique_label_param = 150;
   optional WindowDataParameter window_data_param = 129;
+}
+
+// add attentioncrop
+message AttentionCropParameter {
+  optional float ek = 1 [default = 0.05];
+  optional float thresh = 2 [default = 0.33];
+  optional int32 out_size = 3 [default = 224];
+}
+
+// add triplet loss param
+message OffTripletLossParameter {
+    optional float alpha = 1 [default = 1.1]; // to be tuned
+}
+
+// add triplet loss param
+message TripletLossParameter {
+    optional float alpha = 1 [default = 1.1]; // to be tuned
+    // optional double beta = 2 [default = 0.5]; // to be tuned
+    optional int32 separate = 3 [default = 10000];
+    // label separate to distiguish the random sampled examples
+    // should change according to the mini_batch
+    optional int32 ids_per_batch = 4 [default = 20];
+    optional int32 num_per_id = 5 [default = 20];
+}
+// add rgbd_triplet loss param
+message RgbdTripletLossParameter {
+    optional float alpha = 1 [default = 1.1]; // to be tuned
+    // optional double beta = 2 [default = 0.5]; // to be tuned
+    optional int32 separate = 3 [default = 10000];
+    // label separate to distiguish the random sampled examples
+    // should change according to the mini_batch
+    optional int32 ids_per_batch = 4 [default = 20];
+    optional int32 num_per_id = 5 [default = 20];
 }
 
 // Message that stores parameters used to apply transformation
@@ -432,6 +478,7 @@ message TransformationParameter {
   optional uint32 crop_width = 9 [default = 0];
   // the height for cropped region
   optional uint32 crop_height = 10 [default = 0];
+  optional uint32 crop_stable= 11 [default=0];
 
 }
 
@@ -460,6 +507,13 @@ message LossParameter {
   // is not specified, then setting this to false will be equivalent to
   // normalization = BATCH_SIZE to be consistent with previous behavior.
   optional bool normalize = 2;
+  //add by breeze
+  optional bool bootstrap = 4 [default = false];
+  optional float fg_score_th = 5 [default = 1];
+  optional float bg_score_th = 6 [default = 1];
+  optional bool missing_label_aware = 7 [default = false];
+  optional float missing_label_score_th = 8 [default = 1];
+  optional string weight_source = 9;
 }
 
 // Messages that store parameters used by individual layer types follow, in
@@ -528,6 +582,9 @@ message ConcatParameter {
   optional uint32 concat_dim = 1 [default = 1];
 }
 
+message CosineParameter {
+
+}
 message BatchNormParameter {
   // If false, accumulate global mean/variance values via a moving average. If
   // true, use those accumulated values instead of computing mean/variance
@@ -637,6 +694,11 @@ message ConvolutionParameter {
   // ignored and the ND implementation will be used.)
   optional bool force_nd_im2col = 17 [default = false];
 }
+
+message CompactBilinearParameter {
+   optional uint32 num_output = 1;
+   optional bool sum_pool = 2 [default = true]; 
+} 
 
 message DataParameter {
   enum DB {
@@ -841,10 +903,15 @@ message ImageDataParameter {
   // DEPRECATED. See TransformationParameter. Specify if we would like to randomly
   // crop an image.
   optional uint32 crop_size = 5 [default = 0];
+  optional uint32 crop_width = 19 [default = 0];
+  optional uint32 crop_height = 20 [default = 0];  
   // DEPRECATED. See TransformationParameter. Specify if we want to randomly mirror
   // data.
   optional bool mirror = 6 [default = false];
   optional string root_folder = 12 [default = ""];
+  //add by breeze
+  optional int32 num_modality = 17 [default = 1];
+  optional int32 num_oversegment = 18 [default = 0];
 }
 
 message InfogainLossParameter {
@@ -906,7 +973,14 @@ message LRNParameter {
   }
   optional Engine engine = 6 [default = DEFAULT];
 }
-
+message LiftedStructSimilaritySoftmaxLossParameter {
+  optional float margin = 1 [default = 1.0];
+  optional int32 dim= 2 [default = 19];
+}
+message LiftedRgbdLossParameter {
+  optional float margin = 1 [default = 1.0];
+  optional int32 dim = 2 [default = 19];
+}
 message MatReadParameter {
   required string prefix = 1;
   optional string source = 2 [default = ""];
@@ -939,6 +1013,21 @@ message MVNParameter {
   optional float eps = 3 [default = 1e-9];
 }
 
+// Message that stores parameters used by NormalizeLayer
+message NormalizeParameter {
+  optional bool across_spatial = 1 [default = true];
+  // Initial value of scale. Default is 1.0 for all
+  optional FillerParameter scale_filler = 2;
+  // Whether or not scale parameters are shared across channels.
+  optional bool channel_shared = 3 [default = true];
+  // Whether we learn the scale parameter or fix it
+  optional bool fix_scale = 4 [default = true];
+  // Epsilon for not dividing by zero while normalizing variance
+  optional float eps = 5 [default = 1e-10];
+}
+message NormFParameter {
+	optional float eps = 5 [default =1e-10];
+}
 message PoolingParameter {
   enum PoolMethod {
     MAX = 0;
@@ -966,6 +1055,7 @@ message PoolingParameter {
   // If global_pooling then it will pool over the size of the bottom by doing
   // kernel_h = bottom->height and kernel_w = bottom->width
   optional bool global_pooling = 12 [default = false];
+  optional bool is_content_aware = 13 [default = false];
 }
 
 message PowerParameter {
@@ -1182,6 +1272,16 @@ message SoftmaxParameter {
   optional int32 axis = 2 [default = 1];
 }
 
+message MultinomialLogisticParameter {
+  enum Engine {
+    DEFAULT = 0;
+    CAFFE = 1;
+    CUDNN = 2;
+  }
+  optional Engine engine = 1 [default = DEFAULT];
+
+}
+
 message TanHParameter {
   enum Engine {
     DEFAULT = 0;
@@ -1276,6 +1376,7 @@ message V1LayerParameter {
     CONCAT = 3;
     CONTRASTIVE_LOSS = 37;
     CONVOLUTION = 4;
+    COSINE = 49;
     DATA = 5;
     DECONVOLUTION = 39;
     DROPOUT = 6;
@@ -1456,3 +1557,40 @@ message PReLUParameter {
   // Whether or not slope paramters are shared across channels.
   optional bool channel_shared = 2 [default = false];
 }
+
+message MultiStageMeanfieldParameter {
+  enum Mode {
+    POTTS = 0;
+  }
+  optional Mode compatibility_mode = 1 [default = POTTS];
+  optional float threshold = 2;
+
+  required float theta_alpha = 3 [default = 10.];
+  required float theta_beta = 4 [default = 10.];
+  required float theta_gamma = 5 [default = 10.];
+
+  required uint32 num_iterations = 6 [default = 1];
+  optional float spatial_filter_weight = 7 [default = 1];
+  optional float bilateral_filter_weight = 8 [default = 1];
+
+  optional float forced_spatial_filter_weight = 9;
+  optional float forced_bilateral_filter_weight = 10;
+}
+
+message CropParameter {
+  // To crop, elements of the first bottom are selected to fit the dimensions
+  // of the second, reference bottom. The crop is configured by
+  // - the crop `axis` to pick the dimensions for cropping
+  // - the crop `offset` to set the shift for all/each dimension
+  // to align the cropped bottom with the reference bottom.
+  // All dimensions up to but excluding `axis` are preserved, while
+  // the dimensions including and trailing `axis` are cropped.
+  // If only one `offset` is set, then all dimensions are offset by this amount.
+  // Otherwise, the number of offsets must equal the number of cropped axes to
+  // shift the crop in each dimension accordingly.
+  // Note: standard dimensions are N,C,H,W so the default is a spatial crop,
+  // and `axis` may be negative to index from the end (e.g., -1 for the last
+  // axis).
+  optional int32 axis = 1 [default = 2];
+  repeated uint32 offset = 2;
+} 
