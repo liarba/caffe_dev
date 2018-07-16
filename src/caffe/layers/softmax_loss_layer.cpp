@@ -33,6 +33,22 @@ void SoftmaxWithLossLayer<Dtype>::LayerSetUp(
   } else {
     normalization_ = this->layer_param_.loss_param().normalization();
   }
+  if (this->layer_param_.loss_param().has_weight_source()) {
+    const string& weight_source = this->layer_param_.loss_param().weight_source();
+    LOG(INFO) << "Opening file " << weight_source;
+    std::fstream infile(weight_source.c_str(), std::fstream::in);
+    CHECK(infile.is_open());
+    Dtype tmp_val;
+    while (infile >> tmp_val) {
+      CHECK_GE(tmp_val, 0) << "Weights cannot be negative";
+      loss_weights_.push_back(tmp_val);
+    }
+    infile.close();
+    CHECK_EQ(loss_weights_.size(), prob_.channels());
+  } else {
+    LOG(INFO) << "Weight_Loss file is not provided. Assign all one to it.";
+    loss_weights_.assign(prob_.channels(), 1.0);
+  }
 }
 
 template <typename Dtype>
@@ -89,23 +105,31 @@ template <typename Dtype>
 void SoftmaxWithLossLayer<Dtype>::Forward_cpu(
     const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
   // The forward pass computes the softmax prob values.
+  //LOG(INFO) << "softmax_bottom_vec_ " << softmax_bottom_vec_[0]->cpu_data()[7];
   softmax_layer_->Forward(softmax_bottom_vec_, softmax_top_vec_);
   const Dtype* prob_data = prob_.cpu_data();
+  //LOG(INFO) << "prob_data " << prob_.channels()<<prob_.height()<<prob_.width(); //19 1 1
   const Dtype* label = bottom[1]->cpu_data();
   int dim = prob_.count() / outer_num_;
+  //LOG(INFO) << "dim " << dim; //19
   int count = 0;
   Dtype loss = 0;
+  //LOG(INFO) << "outer_num " << outer_num_; //10=batch size
+  //LOG(INFO) << "inner_num" << inner_num_; //1
   for (int i = 0; i < outer_num_; ++i) {
     for (int j = 0; j < inner_num_; j++) {
       const int label_value = static_cast<int>(label[i * inner_num_ + j]);
+      //LOG(INFO) << "label_value" << label_value;
+      //LOG(INFO) << "prob_data" << prob_data[i * dim + label_value * inner_num_ + j];
+      //LOG(INFO)<<"loss_weights"<<loss_weights_[label_value];
       if (has_ignore_label_ && label_value == ignore_label_) {
         continue;
       }
       DCHECK_GE(label_value, 0);
       DCHECK_LT(label_value, prob_.shape(softmax_axis_));
-      loss -= log(std::max(prob_data[i * dim + label_value * inner_num_ + j],
+      loss -= loss_weights_[label_value] *log(std::max(prob_data[i * dim + label_value * inner_num_ + j],
                            Dtype(FLT_MIN)));
-      ++count;
+      count += loss_weights_[label_value];
     }
   }
   top[0]->mutable_cpu_data()[0] = loss / get_normalizer(normalization_, count);
@@ -124,7 +148,7 @@ void SoftmaxWithLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   if (propagate_down[0]) {
     Dtype* bottom_diff = bottom[0]->mutable_cpu_diff();
     const Dtype* prob_data = prob_.cpu_data();
-    caffe_copy(prob_.count(), prob_data, bottom_diff);
+    //caffe_copy(prob_.count(), prob_data, bottom_diff);
     const Dtype* label = bottom[1]->cpu_data();
     int dim = prob_.count() / outer_num_;
     int count = 0;
@@ -136,8 +160,12 @@ void SoftmaxWithLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
             bottom_diff[i * dim + c * inner_num_ + j] = 0;
           }
         } else {
-          bottom_diff[i * dim + label_value * inner_num_ + j] -= 1;
-          ++count;
+            for (int c = 0; c < bottom[0]->shape(softmax_axis_); ++c) {
+                bottom_diff[i * dim + c * inner_num_ + j] =
+                loss_weights_[label_value] * prob_data[i * dim + c * inner_num_ + j];
+              }
+          bottom_diff[i * dim + label_value * inner_num_ + j] -= loss_weights_[label_value];;
+          count += loss_weights_[label_value];
         }
       }
     }
